@@ -49,8 +49,8 @@ def find_synonym(text, sentiment):
 
 
 # if __name__ == '__main__':
-def execute_synonym_replacement(file_path= 'Data/Full-Economic-News-Augmented'):
-    train = pd.read_csv('{}.csv'.format(file_path))
+def execute_synonym_replacement(file_path= 'Data/Full-Economic-News'):
+    train = pd.read_csv('{}-Augmented.csv'.format(file_path))
     train = train[['sentiment', 'paraphrased text']]
     augmeted_text = train.progress_apply(lambda x : find_synonym(x['paraphrased text'], x['sentiment']), axis=1)
     x,y = list(map(list,zip(*augmeted_text.values.tolist())))

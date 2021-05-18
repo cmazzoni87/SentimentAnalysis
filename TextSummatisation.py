@@ -29,8 +29,8 @@ def summarize_article(token_text):
 
 
 # if __name__ == '__main__':
-def run_text_summarization(file_path= 'Data/Full-Economic-News-Processed'):
-    financial_data = pd.read_csv('{}.csv'.format(file_path), encoding="ISO-8859-1")
+def run_text_summarization(file_path= 'Data/Full-Economic-News'):
+    financial_data = pd.read_csv('{}-Processed.csv'.format(file_path), encoding="ISO-8859-1")
     financial_data['summary'] = financial_data['text'].apply(summarize_article)
     financial_data.to_csv('{}-Summarized.csv'.format(file_path), index=False)
     return financial_data

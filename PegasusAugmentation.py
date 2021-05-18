@@ -22,8 +22,8 @@ def get_response(input_text, num_return_sequences):
 
 
 # if __name__ == '__main__':
-def execute_pegasus_augmentation(file_path= 'Data/Full-Economic-News-Processed-Summarized'):
-    train = pd.read_csv('{}.csv'.format(file_path))
+def execute_pegasus_augmentation(file_path= 'Data/Full-Economic-News'):
+    train = pd.read_csv('{}-Processed-Summarized.csv'.format(file_path))
     train = train[['summary', 'sentiment']]
     number_sequences = 10
     train['Paraphrased Headlines'] = train['summary'].apply(get_response, num_return_sequences=number_sequences)

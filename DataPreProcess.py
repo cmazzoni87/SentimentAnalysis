@@ -26,12 +26,6 @@ def replace_known_acronyms(text):
     return text
 
 
-def tweet_sized(sentence):
-    if len(sentence) > 350:
-        sentence = sentence[:350]
-    return sentence
-
-
 def clean_statements(sentences, deep_clean=False):
     sentences = re.sub(" '", "'", sentences)
     sentences = re.sub(" 's", "'s", sentences)
