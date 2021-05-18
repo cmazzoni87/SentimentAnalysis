@@ -1,8 +1,12 @@
 import pandas as pd
 import re
+from tqdm import tqdm
+
+tqdm.pandas()
+
 
 # clean sentences
-def decontracted(text):
+def decontracted(text) -> str:
     # specific
     text = re.sub("won\'t", "will not", text)
     text = re.sub("can\'t", "can not", text)
@@ -17,7 +21,7 @@ def decontracted(text):
     return text
 
 
-def replace_known_acronyms(text):
+def replace_known_acronyms(text) -> str:
     # specific
     text = text.replace("U.S.", "United States")
     text = text.replace("U.K.", "United Kingdom")
@@ -26,7 +30,7 @@ def replace_known_acronyms(text):
     return text
 
 
-def clean_statements(sentences, deep_clean=False):
+def clean_statements(sentences, deep_clean=False) -> str:
     sentences = re.sub(" '", "'", sentences)
     sentences = re.sub(" 's", "'s", sentences)
     sentences = re.sub('\( ', '(', sentences)
@@ -48,9 +52,9 @@ def clean_statements(sentences, deep_clean=False):
 
 
 # if __name__ == '__main__':
-def run_data_preprocessing(file_path='Data/Full-Economic-News'):
+def run_data_preprocessing(text_col, file_path='Data/Economic-News') -> pd.DataFrame:
     financial_data = pd.read_csv('{}-PreProcessed.csv'.format(file_path), encoding="ISO-8859-1")
-    financial_data['text'] = financial_data['raw text'].apply(clean_statements, deep_clean=True)
+    financial_data['text'] = financial_data[text_col].progress_apply(clean_statements, deep_clean=True)
     financial_data = financial_data.drop_duplicates(subset='text')
     financial_data.to_csv('{}-Processed.csv'.format(file_path), index=False)
     return financial_data

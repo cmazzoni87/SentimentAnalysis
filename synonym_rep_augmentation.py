@@ -3,6 +3,7 @@ import re
 from nltk.corpus import stopwords
 from tqdm import tqdm
 from nltk.corpus import wordnet
+from typing import Tuple
 
 
 tqdm.pandas()
@@ -10,8 +11,7 @@ stop_words = stopwords.words('english')
 NUMBERS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"]
 
 
-
-def get_synonyms(word):
+def get_synonyms(word) ->list:
     synonyms = []
     for syn in wordnet.synsets(word):
         for l in syn.lemmas():
@@ -20,7 +20,7 @@ def get_synonyms(word):
     return synonyms
 
 
-def find_synonym(text, sentiment):
+def find_synonym(text, sentiment) -> Tuple[list, str]:
     sentences = [text]
     texts = text.split()
     texts = texts[:len(texts) // 2]
@@ -48,9 +48,8 @@ def find_synonym(text, sentiment):
     return sentences, sentiment
 
 
-# if __name__ == '__main__':
-def execute_synonym_replacement(file_path= 'Data/Full-Economic-News'):
-    train = pd.read_csv('{}-Augmented.csv'.format(file_path))
+def execute_synonym_replacement(data, file_path= 'Data/Economic-News-Processed-Summarized-Augmented') -> str:
+    train = data.copy()
     train = train[['sentiment', 'paraphrased text']]
     augmeted_text = train.progress_apply(lambda x : find_synonym(x['paraphrased text'], x['sentiment']), axis=1)
     x,y = list(map(list,zip(*augmeted_text.values.tolist())))
@@ -59,4 +58,4 @@ def execute_synonym_replacement(file_path= 'Data/Full-Economic-News'):
     new_df = new_df.dropna()
     new_df = new_df.drop_duplicates()
     new_df.to_csv('{}-Syn-Replaced.csv'.format(file_path),index=False)
-    return new_df
+    return '{}-Syn-Replaced.csv'.format(file_path)
