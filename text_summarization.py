@@ -1,19 +1,11 @@
-import torch
+from config import get_device
 from transformers import T5Tokenizer, T5ForConditionalGeneration
 import pandas as pd
 
 model = T5ForConditionalGeneration.from_pretrained('t5-large')
 tokenizer = T5Tokenizer.from_pretrained('t5-large')
-device = torch.device('cpu')
+device = get_device()
 chap_n = 0
-
-
-def get_device():
-    if torch.cuda.is_available():
-        device = 'cuda:0'
-    else:
-        device = 'cpu'
-    return device
 
 
 def summarize_article(token_text):
