@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from datetime import datetime
+from time import time
 from config import ModelParamsConfig as vals
 from config import get_device
 from sklearn.model_selection import train_test_split
@@ -65,7 +65,7 @@ def f1_score_func(preds, labels) -> f1_score:
     return f1_score(labels_flat, preds_flat, average='weighted')
 
 
-def guesser_plus(article_text, tokenizer, classes) -> str:
+def guesser_plus(article_text, tokenizer, classes, model) -> str:
     # prepare our text into tokenized sequence
     inputs = tokenizer(article_text, padding=True, truncation=True, max_length=50, return_tensors="pt").to("cuda")
     outputs = model(**inputs)
@@ -162,7 +162,7 @@ def train_model(file_path) -> None:
     val_f1 = f1_score_func(predictions, true_vals)
     if val_f1 > 0.95:
         print('Model has a high F1 score, it will be saved.')
-        torch.save(model.state_dict(), 'sentiment_model_from_augmented_{}.bin'.format(d))
+        torch.save(model.state_dict(), 'sentiment_model_from_augmented_{}.bin'.format(int(time())))
 
     print('Val Loss = ', val_loss)
     print('Val F1 = ', val_f1)
@@ -177,7 +177,10 @@ def train_model(file_path) -> None:
 
     print('Accuracy Score = ', x / len(true_category))
 
-    test_df['Prediction'] = test_df['text'].apply(guesser_plus, tokenizer=tokenizer, classes=['Negative', 'Positive'])
+    test_df['Prediction'] = test_df['text'].apply(guesser_plus,
+                                                  tokenizer=tokenizer,
+                                                  classes=['Negative', 'Positive'],
+                                                  model=model)
     test_df['Correct Prediction'] = test_df['Prediction'] == test_df['sentiment']
     prediction_result = test_df.groupby('Correct Prediction')['text'].count()
     print('Prediction Results')

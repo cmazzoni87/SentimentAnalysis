@@ -1,0 +1,8 @@
+pandas==1.0.1
+tqdm==4.60.0
+numpy==1.19.5
+nltk==3.4.5
+torch==1.8.1+cu111
+transformers==4.5.1
+dataclasses==0.8
+scikit_learn==0.24.2
