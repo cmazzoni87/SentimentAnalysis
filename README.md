@@ -11,7 +11,7 @@ Install required packages in requirements.txt
 pip install requirements.txt
 ```
 ## main.py
-Run setup.py, this will run through the entirety of the project, generating data and training the model
+Run main.py, this will run through the entirety of the project, generating data and training the model
 ```bash
 python main.py
 ```
