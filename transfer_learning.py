@@ -1,36 +1,31 @@
 import numpy as np
 import pandas as pd
+import torch
+
+from datetime import datetime
 from config import ModelParamsConfig as vals
 from config import get_device
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader,TensorDataset
-import torch
 from transformers import BertForSequenceClassification, BertTokenizer, AdamW, get_linear_schedule_with_warmup
 from sklearn.metrics import f1_score
 from typing import Tuple
-
 from tqdm import tqdm
 
 
-MODEL_NAME = 'distilbert-base-uncased' #vals.MODEL_NAME
-BATCH_SIZE = 8 #vals.BATCH_SIZE
+MODEL_SAVE_PATH = vals.MODEL_PATH
+MODEL_NAME = vals.MODEL_NAME
+BATCH_SIZE = vals.BATCH_SIZE
 LR = vals.LR
-MAX_LEN = 60 #vals.MAX_LEN
+MAX_LEN = vals.MAX_LEN
 EPOCHS = vals.EPOCHS
 LABEL_NUM = vals.LABEL_NUM
 TRAIN_TEST_SPLIT = vals.TRAIN_TEST_SPLIT
 device = get_device()
 
-model = BertForSequenceClassification.from_pretrained(MODEL_NAME,
-                                                      num_labels=LABEL_NUM,
-                                                      output_attentions=False,
-                                                      output_hidden_states=False,
-                                                      attention_probs_dropout_prob=0.2,
-                                                      hidden_dropout_prob=0.2)
 
-
-def evaluate(dataloader_val) -> Tuple[float, np.ndarray, np.ndarray]:
+def evaluate(dataloader_val, model) -> Tuple[float, np.ndarray, np.ndarray]:
     model.eval()
     loss_val_total = 0
     predictions, true_vals = [], []
@@ -101,12 +96,19 @@ def generate_dataloader(input_x, input_y, tokenizer, shuffle) -> DataLoader:
 
 
 def train_model(file_path) -> None:
+    model = BertForSequenceClassification.from_pretrained(MODEL_NAME,
+                                                          num_labels=LABEL_NUM,
+                                                          output_attentions=False,
+                                                          output_hidden_states=False,
+                                                          attention_probs_dropout_prob=0.2,
+                                                          hidden_dropout_prob=0.2)
     sentiment_label = 'sentiment'
     text_label = 'generated text'
 
     data = pd.read_csv(file_path)
     data[text_label] = data[text_label].str.lower()
     test_df = data.sample(frac=0.05, random_state=1)
+
     input_data = data.drop(test_df.index)
     encoder = LabelEncoder()
     tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
@@ -151,10 +153,16 @@ def train_model(file_path) -> None:
             scheduler.step()
 
         loss_train_avg = loss_train_total / len(dataloader_train)
-        print('Train Loss {0}'.format(loss_train_avg))
+        val_loss, _, _ = evaluate(dataloader_validation, model)
 
-    val_loss, predictions, true_vals = evaluate(dataloader_validation)
+        print('Train Loss {0}'.format(loss_train_avg))
+        print('Validation Loss {0}'.format(val_loss))
+
+    val_loss, predictions, true_vals = evaluate(dataloader_validation, model)
     val_f1 = f1_score_func(predictions, true_vals)
+    if val_f1 > 0.95:
+        print('Model has a high F1 score, it will be saved.')
+        torch.save(model.state_dict(), 'sentiment_model_from_augmented_{}.bin'.format(d))
 
     print('Val Loss = ', val_loss)
     print('Val F1 = ', val_f1)
@@ -172,4 +180,5 @@ def train_model(file_path) -> None:
     test_df['Prediction'] = test_df['text'].apply(guesser_plus, tokenizer=tokenizer, classes=['Negative', 'Positive'])
     test_df['Correct Prediction'] = test_df['Prediction'] == test_df['sentiment']
     prediction_result = test_df.groupby('Correct Prediction')['text'].count()
+    print('Prediction Results')
     print(prediction_result)
