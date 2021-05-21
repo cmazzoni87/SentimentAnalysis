@@ -32,3 +32,6 @@ def run_all() -> None:
     transfer_learning.train_model(generated_path)
     print('PROCESS COMPLETED')
     print()
+
+if __name__ == '__main__':
+    run_all()
