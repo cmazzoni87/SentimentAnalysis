@@ -15,19 +15,15 @@ def summarize_article(token_text, tokenizer, model) -> str:
                                             num_beams=1,
                                             no_repeat_ngram_size=2,
                                             min_length=30,
-                                            max_length=100,
+                                            max_length=60,
                                             early_stopping=True)
     return tokenizer.decode(summary_ids[0], skip_special_tokens=True)
 
 
-def run_text_summarization(data, file_path= 'Data/Full-Economic-News') -> pd.DataFrame:
+def run_text_summarization(data, file_path) -> pd.DataFrame:
     model = T5ForConditionalGeneration.from_pretrained(var.SUMMARIZATION_MODEL)
     tokenizer = T5Tokenizer.from_pretrained(var.SUMMARIZATION_MODEL)
     data_source = data.copy()
     data_source['summary'] = data_source['text'].progress_apply(summarize_article, tokenizer=tokenizer, model=model)
     data_source.to_csv('{}-Processed-Summarized.csv'.format(file_path), index=False)
     return data_source
-
-# pandas = pd.DataFrame({'text': ['hello' * 1000, 'hello', 'hola']})
-# print(pandas)
-# run_text_summarization(pandas, file_path= 'Data/Full-Economic-News')

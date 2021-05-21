@@ -51,8 +51,7 @@ def clean_statements(sentences, deep_clean=False) -> str:
     return sentences
 
 
-# if __name__ == '__main__':
-def run_data_preprocessing(text_col, file_path='Data/Economic-News') -> pd.DataFrame:
+def run_data_preprocessing(text_col, file_path) -> pd.DataFrame:
     financial_data = pd.read_csv('{}-PreProcessed.csv'.format(file_path), encoding="ISO-8859-1")
     financial_data['text'] = financial_data[text_col].progress_apply(clean_statements, deep_clean=True)
     financial_data = financial_data.drop_duplicates(subset='text')

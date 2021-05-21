@@ -1,29 +1,33 @@
-import random
 import numpy as np
 import pandas as pd
 from config import ModelParamsConfig as vals
 from config import get_device
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader,TensorDataset
 import torch
 from transformers import BertForSequenceClassification, BertTokenizer, AdamW, get_linear_schedule_with_warmup
-from torch.utils.data import TensorDataset
 from sklearn.metrics import f1_score
 from typing import Tuple
 
+from tqdm import tqdm
 
-MODEL_NAME = vals.MODEL_NAME
-BATCH_SIZE = vals.BATCH_SIZE
-MAX_LEN = vals.MAX_LEN
+
+MODEL_NAME = 'distilbert-base-uncased' #vals.MODEL_NAME
+BATCH_SIZE = 8 #vals.BATCH_SIZE
+LR = vals.LR
+MAX_LEN = 60 #vals.MAX_LEN
 EPOCHS = vals.EPOCHS
 LABEL_NUM = vals.LABEL_NUM
+TRAIN_TEST_SPLIT = vals.TRAIN_TEST_SPLIT
 device = get_device()
 
 model = BertForSequenceClassification.from_pretrained(MODEL_NAME,
                                                       num_labels=LABEL_NUM,
                                                       output_attentions=False,
-                                                      output_hidden_states=False)
+                                                      output_hidden_states=False,
+                                                      attention_probs_dropout_prob=0.2,
+                                                      hidden_dropout_prob=0.2)
 
 
 def evaluate(dataloader_val) -> Tuple[float, np.ndarray, np.ndarray]:
@@ -56,72 +60,67 @@ def evaluate(dataloader_val) -> Tuple[float, np.ndarray, np.ndarray]:
 
 
 def f1_score_func(preds, labels) -> f1_score:
+    """
+    :param preds: models prediction
+    :param labels: actual values
+    :return: f1_score int
+    """
     preds_flat = np.argmax(preds, axis=1).flatten()
     labels_flat = labels.flatten()
     return f1_score(labels_flat, preds_flat, average='weighted')
 
 
-def train_model(file_path= 'Data/Economic-News-Processed-Augmented-Syn-Replaced.csv') -> None:
+def guesser_plus(article_text, tokenizer, classes) -> str:
+    # prepare our text into tokenized sequence
+    inputs = tokenizer(article_text, padding=True, truncation=True, max_length=50, return_tensors="pt").to("cuda")
+    outputs = model(**inputs)
+    probs = outputs[0].softmax(1)
+    return classes[probs.argmax()]
+
+
+def generate_dataloader(input_x, input_y, tokenizer, shuffle) -> DataLoader:
+    """
+    :param input_x: Data Array
+    :param input_y: Labels Array
+    :param tokenizer: Respective tokenizer from model used
+    :param shuffle: Bool, shuffle whether or not to change the ordering of the data
+    :return: DataLoader used to train model
+    """
+    encoded_data = tokenizer.batch_encode_plus(input_x,
+                                               add_special_tokens=True,
+                                               return_attention_mask=True,
+                                               padding=True,
+                                               max_length=MAX_LEN,
+                                               return_tensors='pt')
+    input_ids = encoded_data['input_ids']
+    attention_masks = encoded_data['attention_mask']
+    labels = torch.tensor(input_y.values)
+    dataset = TensorDataset(input_ids, attention_masks, labels)
+    dataloader = DataLoader(dataset, shuffle=shuffle, batch_size=BATCH_SIZE)
+    return dataloader
+
+
+def train_model(file_path) -> None:
     sentiment_label = 'sentiment'
     text_label = 'generated text'
 
     data = pd.read_csv(file_path)
+    data[text_label] = data[text_label].str.lower()
     test_df = data.sample(frac=0.05, random_state=1)
     input_data = data.drop(test_df.index)
     encoder = LabelEncoder()
-
+    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
     input_data['encoded_sentiment'] = encoder.fit_transform(input_data[sentiment_label])
     x_train, x_val, y_train, y_val = train_test_split(input_data[text_label],
                                                       input_data['encoded_sentiment'],
-                                                      test_size= vals.TRAIN_TEST_SPLIT)
+                                                      test_size=TRAIN_TEST_SPLIT)
 
-    tokenizer = BertTokenizer.from_pretrained(MODEL_NAME)
+    dataloader_train = generate_dataloader(x_train, y_train, tokenizer, True)
+    dataloader_validation = generate_dataloader(x_val, y_val, tokenizer, False)
 
-
-    encoded_data_train = tokenizer.batch_encode_plus(x_train,
-                                                     add_special_tokens=True,
-                                                     return_attention_mask=True,
-                                                     pad_to_max_length=True,
-                                                     max_length=MAX_LEN,
-                                                     return_tensors='pt')
-
-    encoded_data_val = tokenizer.batch_encode_plus(x_val,
-                                                   add_special_tokens=True,
-                                                   return_attention_mask=True,
-                                                   pad_to_max_length=True,
-                                                   max_length=MAX_LEN,
-                                                   return_tensors='pt')
-
-    input_ids_train = encoded_data_train['input_ids']
-    attention_masks_train = encoded_data_train['attention_mask']
-    labels_train = torch.tensor(y_train.values)
-
-    input_ids_val = encoded_data_val['input_ids']
-    attention_masks_val = encoded_data_val['attention_mask']
-    labels_val = torch.tensor(y_val.values)
-
-
-    # Pytorch TensorDataset Instance
-    dataset_train = TensorDataset(input_ids_train, attention_masks_train, labels_train)
-    dataset_val = TensorDataset(input_ids_val, attention_masks_val, labels_val)
-
-    dataloader_train = DataLoader(dataset_train, shuffle=True, batch_size=BATCH_SIZE)
-    dataloader_validation = DataLoader(dataset_val, shuffle=False,  batch_size=BATCH_SIZE)
-
-
-    optimizer = AdamW(model.parameters(), lr=vals.LR, eps=1e-4)
-
+    optimizer = AdamW(model.parameters(), lr=LR, eps=1e-4)
     steps = len(dataloader_train) * EPOCHS
     scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=steps)
-
-
-    seed_val = 17
-    random.seed(seed_val)
-    np.random.seed(seed_val)
-    torch.manual_seed(seed_val)
-    torch.cuda.manual_seed_all(seed_val)
-    device = torch.device('cuda')
-
     model.to(device)
 
     for epoch in range(EPOCHS):
@@ -129,7 +128,11 @@ def train_model(file_path= 'Data/Economic-News-Processed-Augmented-Syn-Replaced.
         print('Epoch {0}/{1}'.format(epoch + 1, EPOCHS))
         model.train()
         loss_train_total = 0
-        for batch in dataloader_train:
+        progress_bar = tqdm(dataloader_train,
+                            desc='Epoch {0}/{1}'.format(epoch + 1, EPOCHS),
+                            leave=False,
+                            disable=False)
+        for batch in  progress_bar: #  dataloader_train:
             model.zero_grad()
             batch = tuple(b.long() for b in batch)
 
@@ -159,10 +162,14 @@ def train_model(file_path= 'Data/Economic-News-Processed-Augmented-Syn-Replaced.
     encoded_classes = encoder.classes_
     predicted_category = [encoded_classes[np.argmax(x)] for x in predictions]
     true_category = [encoded_classes[x] for x in true_vals]
-
     x = 0
     for i in range(len(true_category)):
         if true_category[i] == predicted_category[i]:
             x += 1
 
     print('Accuracy Score = ', x / len(true_category))
+
+    test_df['Prediction'] = test_df['text'].apply(guesser_plus, tokenizer=tokenizer, classes=['Negative', 'Positive'])
+    test_df['Correct Prediction'] = test_df['Prediction'] == test_df['sentiment']
+    prediction_result = test_df.groupby('Correct Prediction')['text'].count()
+    print(prediction_result)

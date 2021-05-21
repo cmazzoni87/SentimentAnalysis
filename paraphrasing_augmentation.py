@@ -6,13 +6,12 @@ from tqdm import tqdm
 from typing import List
 
 tqdm.pandas()
+torch_device = get_device()
 
 
-def get_response(input_text, num_return_sequences) -> List[str]:
-    MODEL_NAME = var.PARAPHRASING_MODEL
-    torch_device = get_device()
-    tokenizer = PegasusTokenizer.from_pretrained(MODEL_NAME)
-    model = PegasusForConditionalGeneration.from_pretrained(MODEL_NAME).to(torch_device)
+def get_response(input_text, num_return_sequences, tokenizer, model) -> List[str]:
+
+
     batch = tokenizer.prepare_seq2seq_batch([input_text],
                                             truncation=True,
                                             padding='longest',
@@ -25,12 +24,18 @@ def get_response(input_text, num_return_sequences) -> List[str]:
     return tgt_text
 
 
-def execute_pegasus_augmentation(data) -> pd.DataFrame:
+def execute_pegasus_augmentation(data, file_path) -> pd.DataFrame:
+    MODEL_NAME = var.PARAPHRASING_MODEL
+    tokenizer = PegasusTokenizer.from_pretrained(MODEL_NAME)
+    model = PegasusForConditionalGeneration.from_pretrained(MODEL_NAME).to(torch_device)
     train = data.copy()
     train = train[['summary', 'sentiment']]
     number_sequences = 10
-    train['paraphrased headlines'] = train['summary'].progress_apply(get_response, num_return_sequences=number_sequences)
-    generated = train.explode('paraphrased headlines')
+    train['paraphrased text'] = train['summary'].progress_apply(get_response,
+                                                                     num_return_sequences=number_sequences,
+                                                                     tokenizer=tokenizer,
+                                                                     model=model)
+    generated = train.explode('paraphrased text')
     generated = generated.dropna()
-    generated.to_csv('Data/Economic-News-Processed-Summarized-Augmented.csv', index=False)
+    generated.to_csv('{}-Processed-Summarized-Augmented.csv'.format(file_path), index=False)
     return generated

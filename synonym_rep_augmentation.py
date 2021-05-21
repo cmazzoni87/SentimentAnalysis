@@ -48,7 +48,7 @@ def find_synonym(text, sentiment) -> Tuple[list, str]:
     return sentences, sentiment
 
 
-def execute_synonym_replacement(data, file_path= 'Data/Economic-News-Processed-Summarized-Augmented') -> str:
+def execute_synonym_replacement(data, file_path) -> str:
     train = data.copy()
     train = train[['sentiment', 'paraphrased text']]
     augmeted_text = train.progress_apply(lambda x : find_synonym(x['paraphrased text'], x['sentiment']), axis=1)
@@ -57,5 +57,6 @@ def execute_synonym_replacement(data, file_path= 'Data/Economic-News-Processed-S
     new_df = new_df.explode('generated text')
     new_df = new_df.dropna()
     new_df = new_df.drop_duplicates()
-    new_df.to_csv('{}-Syn-Replaced.csv'.format(file_path),index=False)
-    return '{}-Syn-Replaced.csv'.format(file_path)
+    output_path = '{}-Processed-Summarized-Augmented-Syn-Replaced.csv'.format(file_path)
+    new_df.to_csv(output_path, index=False)
+    return output_path
