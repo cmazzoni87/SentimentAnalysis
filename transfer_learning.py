@@ -75,7 +75,7 @@ def guesser_plus(article_text, tokenizer, classes, model) -> str:
 
 def generate_dataloader(input_x, input_y, tokenizer, shuffle) -> DataLoader:
     """
-    :param input_x: Data Array
+    :param input_x: data Array
     :param input_y: Labels Array
     :param tokenizer: Respective tokenizer from model used
     :param shuffle: Bool, shuffle whether or not to change the ordering of the data
